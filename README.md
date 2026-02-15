@@ -19,7 +19,7 @@ jot
 
 ## List memo
 ```bash
-jost list
+jot list
 | ID     | Memo                          | CreateDate          | Create At              |
 | ------ | ----------------------------- | ----------          | ---------              |
 | b32adh | that's all                    | 2025-01-01 10:23:12 | ~/dotfiles             |

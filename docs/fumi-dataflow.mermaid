@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant U as User
+    participant C as Client<br/>(CLI/TUI/Web/Nvim)
+    participant D as fumid
+    participant DB as SQLite
+    participant IDX as FTS5 + Vec
+    participant LLM as LLM Provider
+    participant S as Sync Server
+
+    Note over U,S: さっとメモを書く (Quick Capture)
+    U->>C: fumi "買い物: 牛乳"
+    C->>D: memo.quick { body, tags? }
+    D->>DB: INSERT memo
+    D-->>C: Memo { id, ... }
+    D->>IDX: async: FTS5 index更新
+    D->>LLM: async: Embedding生成
+    LLM-->>D: vector[384]
+    D->>IDX: sqlite-vec INSERT
+    D->>LLM: async: タグ提案
+    LLM-->>D: ["shopping", "daily"]
+    D->>DB: INSERT suggested_tags
+
+    Note over U,S: 意味検索
+    U->>C: fumi search --semantic "先週の定例で決まったこと"
+    C->>D: search.semantic { query }
+    D->>LLM: embed(query)
+    LLM-->>D: query_vector
+    D->>IDX: KNN search (sqlite-vec)
+    IDX-->>D: scored_memo_ids[]
+    D->>DB: SELECT memos WHERE id IN (...)
+    DB-->>D: Memo[]
+    D-->>C: ScoredMemo[]
+
+    Note over U,S: バックグラウンド同期
+    D->>DB: SELECT WHERE local_dirty = true
+    DB-->>D: ChangeLog[]
+    D->>S: push_changes(changes)
+    S-->>D: ack
+    D->>DB: UPDATE local_dirty = false
+    S->>D: pull_changes(cursor)
+    D->>DB: apply remote changes

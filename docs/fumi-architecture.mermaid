@@ -1,0 +1,66 @@
+graph TB
+    subgraph Clients["クライアント層"]
+        CLI["fumi CLI<br/>(Rust/clap)"]
+        TUI["fumi TUI<br/>(Rust/Ratatui)"]
+        NVIM["fumi.nvim<br/>(Lua + Telescope)"]
+        WEB["fumi Web<br/>(React + PWA)"]
+    end
+
+    subgraph Daemon["fumid — ローカルデーモン"]
+        API["API Layer<br/>JSON-RPC + REST"]
+        SCHED["Scheduler<br/>バックグラウンドジョブ"]
+        IDX["Indexer<br/>FTS5 / Vec更新"]
+        SYNCM["Sync Manager<br/>変更キュー管理"]
+        LLMM["LLM Manager<br/>Embedding/推論"]
+    end
+
+    subgraph Storage["ローカルストレージ"]
+        SQLITE[("SQLite<br/>メモ・タグ・タスク")]
+        FTS[("FTS5 Index<br/>全文検索")]
+        VEC[("sqlite-vec<br/>意味検索")]
+        FILES["📁 Attachments<br/>画像・ファイル"]
+    end
+
+    subgraph Remote["リモート (Optional)"]
+        SYNC["Sync Server<br/>(Rust/axum)"]
+        PG[("PostgreSQL<br/>+ pgvector")]
+        S3["Object Store<br/>(S3/MinIO)"]
+    end
+
+    subgraph LLM["LLMプロバイダ"]
+        OLLAMA["Ollama<br/>(ローカル)"]
+        CLAUDE["Anthropic API"]
+        ONNX["ONNX Runtime<br/>(Embedding)"]
+    end
+
+    CLI -->|Unix Socket| API
+    TUI -->|Unix Socket| API
+    NVIM -->|Unix Socket| API
+    WEB -->|HTTP localhost| API
+
+    API --> SQLITE
+    API --> FTS
+    API --> VEC
+    API --> FILES
+
+    SCHED --> IDX
+    SCHED --> SYNCM
+    SCHED --> LLMM
+
+    IDX --> FTS
+    IDX --> VEC
+
+    SYNCM -->|"オンライン時<br/>バックグラウンド"| SYNC
+
+    SYNC --> PG
+    SYNC --> S3
+
+    LLMM --> OLLAMA
+    LLMM --> CLAUDE
+    LLMM --> ONNX
+
+    style Clients fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+    style Daemon fill:#1e293b,stroke:#10b981,color:#e2e8f0
+    style Storage fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+    style Remote fill:#1e293b,stroke:#8b5cf6,color:#e2e8f0
+    style LLM fill:#1e293b,stroke:#ec4899,color:#e2e8f0
