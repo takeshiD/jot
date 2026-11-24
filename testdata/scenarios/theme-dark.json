@@ -1,0 +1,19 @@
+{"launch":{"argv":["sh","scripts/sandbox.sh","--seed"],"cols":80,"rows":24},
+"steps":[
+{"do":"wait_text","text":"Today 0","timeout_ms":10000},
+{"do":"press","keys":["Tab"]},
+{"do":"wait_text","text":"牛乳を買う"},
+{"do":"press","keys":["Space"]},
+{"do":"wait_text","text":"Today 1"},
+{"do":"expect_style","text":"牛乳を買う","style":{"bg":24}},
+{"do":"expect_style","text":"☀","style":{"fg":214}},
+{"do":"expect_style","text":"▸ home","style":{"fg":176}},
+{"do":"expect_style","text":"#mtg","style":{"fg":114}},
+{"do":"capture","name":"dark-theme"},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0},
+{"do":"restart"},
+{"do":"wait_text","text":"Today 1"},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0}
+]}

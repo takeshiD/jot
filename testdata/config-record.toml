@@ -1,0 +1,3 @@
+# Test config: the "browser" is a recorder script (opens nothing).
+[browser]
+command = ["sh", "scripts/record-open.sh", "{url}"]

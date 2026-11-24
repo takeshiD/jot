@@ -1,0 +1,32 @@
+{
+  "schema": "kenshu-loop/order@1",
+  "title": "Jot — Today中心のTaskwarrior用キーボードTUI",
+  "summary": "既存のTaskwarriorのタスクから『今日やること(Today)』を選んで手動で並べ、タグ・グループ・メモ(URL付き)を扱えるシンプルなキーボード中心TUI『Jot』(実行ファイル名 jot)を Go + Bubble Tea で作る。データは標準の task コマンドと完全に互換のまま扱う。",
+  "deliverable_type": "tui",
+  "context": "Linux端末(Taskwarrior 3.5.0 がPATHに存在。Go 1.27 あり)で、Taskwarriorを日常的に使う個人が毎日起動して使う。端末幅は広い場合も、80x24未満の狭い分割ペインの場合もある。普段は標準の task コマンドとも併用するため、Jotで行った変更は task コマンドからそのまま見え、task コマンドで行った変更もJotに反映されなければならない。この開発機には利用者の実データ(~/.taskrc, ~/.task)は無いが、本番では存在する前提。開発・テスト・検収では必ず TASKRC/TASKDATA を一時ディレクトリに向けて隔離し、ホームの設定・データを作成・変更しないこと。ブラウザ起動の検証では実際のブラウザを開かず、設定したコマンドを記録用スクリプトに差し替えて確認すること。GitHubへのpushは発注者側で行うので受注側は行わない。",
+  "requirements": [
+    { "id": "R1", "kind": "constraint", "text": "言語は Go、TUIは Bubble Tea(+Lip Gloss等のCharm系ライブラリ)で実装し、アプリ表示名は Jot、実行ファイル名は jot とする。go.mod/go.sum によりバージョン固定され、README記載の1コマンドでビルドできる。", "must": true },
+    { "id": "R2", "kind": "constraint", "text": "タスクの読み書きはTaskwarrior標準のインターフェース(taskコマンド: export/import/modify/add/done 等)経由で行い、独自のタスクDBを持たず、Taskwarriorの内部DBファイルを直接読み書きしない。対応Taskwarriorバージョンと連携方式(使うコマンド、UDAの定義方法、並行操作時の扱い)を調査してドキュメントに明記する。", "must": true },
+    { "id": "R3", "kind": "goal", "text": "Jotで作成・編集・完了・削除したタスクは task コマンド(task export / task list 等)で同じ内容として見え、逆に task コマンドで作成・変更したタスクはJotの再読込(起動または更新キー)で反映される(CLI往復互換)。", "must": true },
+    { "id": "R4", "kind": "goal", "text": "任意の既存タスク(pending)を1キー(既定はSpace)でToday(今日やること)に追加・解除でき、Today一覧画面と全タスク一覧画面を切り替えられる。Today の状態は期限(due)・予定(scheduled)・完了状態とは別の情報として保存され、それらを変更しない。", "must": true },
+    { "id": "R5", "kind": "goal", "text": "日付が変わったときのTodayの扱い(例: 未完了のToday項目を翌日に持ち越すか、完了済み項目はいつTodayから外れるか)について自然な仕様を策定してドキュメントに明記し、その仕様どおりに動作する。日付境界はテスト可能な形(時刻の差し替え等)で検証される。", "must": true },
+    { "id": "R6", "kind": "goal", "text": "Today一覧の項目をキー操作で任意の順に手動で並べ替えられ、その順序はJotを終了・再起動しても、またtaskコマンドで他のタスクを変更した後でも維持される。順序はTaskwarriorのデータ(例: UDA)として保存される。", "must": true },
+    { "id": "R7", "kind": "goal", "text": "タスクをグループごとにまとめて表示できる(例: project単位)。タスクにタグを追加・削除でき、それはTaskwarriorの標準tags として task コマンドから見える。", "must": true },
+    { "id": "R8", "kind": "goal", "text": "タスクにタイトルと、複数行の説明・メモを持たせられる。タイトル・メモがTaskwarriorのどのフィールド(description, annotations, UDA等)に対応するかをドキュメントに明記する。", "must": true },
+    { "id": "R9", "kind": "goal", "text": "メモ内に複数のURLを書け、キー操作でURL一覧から1つを選んで、OS既定のブラウザ、または設定ファイルで指定したブラウザ/コマンドで開ける。起動はシェルを経由せず引数として安全に渡し、http/https以外などの危険なURLは開かない(仕様に明記)。", "must": true },
+    { "id": "R10", "kind": "goal", "text": "タスクの追加・タイトル編集・メモ編集・完了・完了取消または削除といった基本操作がキーボードのみで行え、画面下部や ? キーのヘルプで操作キーが分かる。taskコマンドの失敗(未インストール、エラー出力等)は画面上に分かるメッセージで表示され、アプリは落ちない。", "must": true },
+    { "id": "R11", "kind": "goal", "text": "設定ファイル(XDG準拠の既定パス、環境変数または引数で変更可)でキーバインドを変更できる。Vim風の操作(j/k移動等)が既定またはプリセットで使える。設定例ファイルを同梱する。不正な設定は分かるエラーで知らせる。", "must": true },
+    { "id": "R12", "kind": "goal", "text": "複数のテーマ(少なくとも明暗を含む2種類以上)を同梱し、設定ファイルで切り替えられる。見た目は整っていて、選択行・Today状態・タグ・グループが見分けられる。", "must": true },
+    { "id": "R13", "kind": "usage", "text": "80x24および60x20程度の狭い端末でも表示が崩れず(行が折り返して崩れない、重要情報が切れて操作不能にならない)、端末サイズ変更に追従する。日本語のタイトル・メモも正しい幅で表示される。", "must": true },
+    { "id": "R14", "kind": "constraint", "text": "自動テスト(go test)と、隔離した一時Taskwarriorデータを使う結合テストがあり、CLI往復互換・Today・日付持ち越し・順序の永続化・タグ・メモURL・キーバインド設定・テーマ・狭い画面を検証する。テスト・検収は利用者のホームの設定やデータを変更しない。", "must": true },
+    { "id": "R15", "kind": "constraint", "text": "README に概要、必要環境、ビルド・実行手順(再現可能なビルドコマンド)、設定例、キー一覧があり、別途 docs に仕様(Today/日付/順序/フィールド対応/URL起動の安全性)と未解決事項がまとまっている。", "must": true },
+    { "id": "R16", "kind": "goal", "text": "linux/amd64 のビルド済みバイナリを再現可能な手順(例: make build / go build -trimpath)で生成できる。", "must": false }
+  ],
+  "out_of_scope": [
+    "Taskwarriorの同期サーバ(taskchampion sync)設定・同期機能",
+    "Taskwarriorの全レポート・フィルタ言語の再実装",
+    "GUI・Web UI",
+    "GitHubへのリポジトリ作成・push(発注者が行う)",
+    "繰り返しタスクや依存関係の編集UI"
+  ]
+}

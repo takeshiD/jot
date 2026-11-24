@@ -1,0 +1,14 @@
+{"launch":{"argv":["sh","-c","JOT_TASK=/nonexistent/task exec ./bin/jot"],"cols":80,"rows":24},
+"steps":[
+{"do":"wait_text","text":"エラー: task コマンドが見つかりません","timeout_ms":10000},
+{"do":"press","keys":["a"]},
+{"do":"type","text":"x"},
+{"do":"press","keys":["Enter"]},
+{"do":"wait_text","text":"エラー: task コマンドが見つかりません"},
+{"do":"press","keys":["r"]},
+{"do":"expect_text","text":"Jot  Today 0","row":0},
+{"do":"capture","name":"no-task"},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0},
+{"do":"expect_file","path":"$HOME/.taskrc","exists":false}
+]}

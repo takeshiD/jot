@@ -1,0 +1,36 @@
+# Jot 設定例 — ~/.config/jot/config.toml にコピーして使う
+# (場所は $XDG_CONFIG_HOME/jot/config.toml。$JOT_CONFIG または --config で変更可)
+
+# テーマ: "dark" | "light" | "dusk"
+theme = "dark"
+
+# キー配置のプリセット: "vim"(既定: j/k + 矢印) | "arrows"(矢印・ctrl+n/p)
+preset = "vim"
+
+# 日付が変わる時刻(0-23)。4 なら 午前4時までは前日扱い
+day_start_hour = 0
+
+# 未完了のToday項目を翌日以降も持ち越すか
+carry_over = true
+
+# 全タスク画面のグループ: "project" | "none"
+group_by = "project"
+
+# ブラウザ: 未指定なら OS 既定 (Linux: xdg-open, macOS: open)。
+# URL は常に1つの引数として渡され、シェルは使われない。
+# "{url}" を書けばその位置に、書かなければ末尾に URL が入る。
+[browser]
+# command = ["firefox", "--new-tab", "{url}"]
+
+[taskwarrior]
+# command = "task"   # task コマンドのパス
+
+# キーの上書き(プリセットからの差分だけ書けばよい)
+# キー名: 1文字("j","K","?")、space enter tab shift+tab esc backspace delete insert
+#         up down left right home end pgup pgdown shift+up/down alt+up/down ctrl+a..z f1..f12 alt+<文字>
+[keys]
+# toggle_today = ["space", "T"]
+# move_up = ["K", "shift+up"]
+# move_down = ["J", "shift+down"]
+# toggle_done = ["x"]
+# quit = ["q", "ctrl+c"]
