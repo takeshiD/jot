@@ -39,6 +39,18 @@ make build-linux-amd64   # -> dist/jot-linux-amd64
 make test             # = CGO_ENABLED=0 go test ./...
 ```
 
+### Nix (flake)
+
+```sh
+nix run github:takeshiD/jot                 # インストールせずに起動
+nix profile install github:takeshiD/jot     # プロファイルに入れる
+nix build                                   # -> ./result/bin/jot (ビルド時に go test ./... も実行)
+nix develop                                 # go / gopls / make / task 入りの開発シェル
+```
+
+NixOS や home-manager では `inputs.jot.url = "github:takeshiD/jot";` を追加し、`inputs.jot.packages.${pkgs.stdenv.hostPlatform.system}.default` を使います。
+依存は `vendor/` に同梱しているので `vendorHash` は不要です。
+
 ### 本番データに触れずに試す
 
 ```sh
