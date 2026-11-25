@@ -1,0 +1,2 @@
+# language explicitly Japanese (wins over the locale)
+language = "ja"

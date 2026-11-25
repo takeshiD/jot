@@ -1,0 +1,157 @@
+{
+  "schema": "kenshu-loop/order@1",
+  "title": "Jot — 多言語化(英語/日本語)の追加",
+  "summary": "受入済み・UI承認済みの Jot に多言語化(英語 en / 日本語 ja)を追加する。設定ファイルの language、未指定時は Linux のロケール環境変数で言語を決め、既定・フォールバックは英語。既存の画面構成・操作・Taskwarrior互換性は維持する。",
+  "deliverable_type": "tui",
+  "context": "既存の受入済みリポジトリ(Go + Bubble Tea、docs/spec.md、README、testdata/scenarios、go test)に対する追加開発。前回検収(要求R1〜R16)は合格済みで、利用者はUIを承認済みのため、画面構成とキー操作は変えない。現状UIの固定文字列は日本語で直書きされている。利用者はLinux端末で使い、英語ロケールの環境と日本語ロケール(ja_JP.UTF-8)の環境の両方がある。開発・テスト・検収では必ず TASKRC/TASKDATA と HOME を一時ディレクトリに向けて隔離し、利用者のホームの設定・データを作成・変更しない。ブラウザ起動の検証は記録用スクリプトで行い実ブラウザを開かない。git commit/push は発注者が行うので受注側は行わない。",
+  "requirements": [
+    {
+      "id": "R1",
+      "kind": "constraint",
+      "text": "言語は Go、TUIは Bubble Tea(+Lip Gloss等のCharm系ライブラリ)で実装し、アプリ表示名は Jot、実行ファイル名は jot とする。go.mod/go.sum によりバージョン固定され、README記載の1コマンドでビルドできる。",
+      "must": true
+    },
+    {
+      "id": "R2",
+      "kind": "constraint",
+      "text": "タスクの読み書きはTaskwarrior標準のインターフェース(taskコマンド: export/import/modify/add/done 等)経由で行い、独自のタスクDBを持たず、Taskwarriorの内部DBファイルを直接読み書きしない。対応Taskwarriorバージョンと連携方式(使うコマンド、UDAの定義方法、並行操作時の扱い)を調査してドキュメントに明記する。",
+      "must": true
+    },
+    {
+      "id": "R3",
+      "kind": "goal",
+      "text": "Jotで作成・編集・完了・削除したタスクは task コマンド(task export / task list 等)で同じ内容として見え、逆に task コマンドで作成・変更したタスクはJotの再読込(起動または更新キー)で反映される(CLI往復互換)。",
+      "must": true
+    },
+    {
+      "id": "R4",
+      "kind": "goal",
+      "text": "任意の既存タスク(pending)を1キー(既定はSpace)でToday(今日やること)に追加・解除でき、Today一覧画面と全タスク一覧画面を切り替えられる。Today の状態は期限(due)・予定(scheduled)・完了状態とは別の情報として保存され、それらを変更しない。",
+      "must": true
+    },
+    {
+      "id": "R5",
+      "kind": "goal",
+      "text": "日付が変わったときのTodayの扱い(例: 未完了のToday項目を翌日に持ち越すか、完了済み項目はいつTodayから外れるか)について自然な仕様を策定してドキュメントに明記し、その仕様どおりに動作する。日付境界はテスト可能な形(時刻の差し替え等)で検証される。",
+      "must": true
+    },
+    {
+      "id": "R6",
+      "kind": "goal",
+      "text": "Today一覧の項目をキー操作で任意の順に手動で並べ替えられ、その順序はJotを終了・再起動しても、またtaskコマンドで他のタスクを変更した後でも維持される。順序はTaskwarriorのデータ(例: UDA)として保存される。",
+      "must": true
+    },
+    {
+      "id": "R7",
+      "kind": "goal",
+      "text": "タスクをグループごとにまとめて表示できる(例: project単位)。タスクにタグを追加・削除でき、それはTaskwarriorの標準tags として task コマンドから見える。",
+      "must": true
+    },
+    {
+      "id": "R8",
+      "kind": "goal",
+      "text": "タスクにタイトルと、複数行の説明・メモを持たせられる。タイトル・メモがTaskwarriorのどのフィールド(description, annotations, UDA等)に対応するかをドキュメントに明記する。",
+      "must": true
+    },
+    {
+      "id": "R9",
+      "kind": "goal",
+      "text": "メモ内に複数のURLを書け、キー操作でURL一覧から1つを選んで、OS既定のブラウザ、または設定ファイルで指定したブラウザ/コマンドで開ける。起動はシェルを経由せず引数として安全に渡し、http/https以外などの危険なURLは開かない(仕様に明記)。",
+      "must": true
+    },
+    {
+      "id": "R10",
+      "kind": "goal",
+      "text": "タスクの追加・タイトル編集・メモ編集・完了・完了取消または削除といった基本操作がキーボードのみで行え、画面下部や ? キーのヘルプで操作キーが分かる(表示言語は R18 に従う)。taskコマンドの失敗(未インストール、エラー出力等)は画面上に分かるメッセージで表示され、アプリは落ちない。",
+      "must": true
+    },
+    {
+      "id": "R11",
+      "kind": "goal",
+      "text": "設定ファイル(XDG準拠の既定パス、環境変数または引数で変更可)でキーバインドを変更できる。Vim風の操作(j/k移動等)が既定またはプリセットで使える。設定例ファイルを同梱する。不正な設定は分かるエラーで知らせる。",
+      "must": true
+    },
+    {
+      "id": "R12",
+      "kind": "goal",
+      "text": "複数のテーマ(少なくとも明暗を含む2種類以上)を同梱し、設定ファイルで切り替えられる。見た目は整っていて、選択行・Today状態・タグ・グループが見分けられる。",
+      "must": true
+    },
+    {
+      "id": "R13",
+      "kind": "usage",
+      "text": "80x24および60x20程度の狭い端末でも表示が崩れず(行が折り返して崩れない、重要情報が切れて操作不能にならない)、端末サイズ変更に追従する。日本語のタイトル・メモも正しい幅で表示される。",
+      "must": true
+    },
+    {
+      "id": "R14",
+      "kind": "constraint",
+      "text": "自動テスト(go test)と、隔離した一時Taskwarriorデータを使う結合テストがあり、CLI往復互換・Today・日付持ち越し・順序の永続化・タグ・メモURL・キーバインド設定・テーマ・狭い画面を検証する。テスト・検収は利用者のホームの設定やデータを変更しない。",
+      "must": true
+    },
+    {
+      "id": "R15",
+      "kind": "constraint",
+      "text": "README に概要、必要環境、ビルド・実行手順(再現可能なビルドコマンド)、設定例、キー一覧があり、別途 docs に仕様(Today/日付/順序/フィールド対応/URL起動の安全性)と未解決事項がまとまっている。",
+      "must": true
+    },
+    {
+      "id": "R16",
+      "kind": "goal",
+      "text": "linux/amd64 のビルド済みバイナリを再現可能な手順(例: make build / go build -trimpath)で生成できる。",
+      "must": false
+    },
+    {
+      "id": "R17",
+      "kind": "goal",
+      "text": "設定ファイルの top-level キー language で表示言語を選べる。受け付ける値は \"en\"(英語) と \"ja\"(日本語) のみ(\"jp\" 等のエイリアスは受け付けない)。明示した language はロケール環境変数より優先される。",
+      "must": true
+    },
+    {
+      "id": "R18",
+      "kind": "goal",
+      "text": "language 未指定のとき、LC_ALL > LC_MESSAGES > LANG の順で最初の空でない値を評価し、ja_JP.UTF-8 / ja_JP / ja などの日本語ロケールなら ja、それ以外・すべて未設定・C/POSIX なら en にする。英語が既定かつフォールバック。(例: LC_ALL が空で LC_MESSAGES=C, LANG=ja_JP.UTF-8 なら en)",
+      "must": true
+    },
+    {
+      "id": "R19",
+      "kind": "constraint",
+      "text": "language に en/ja 以外の値(\"jp\"、型違いを含む)を書くと、他の不正な設定と同様に --check-config と起動時に検証エラー(理由とファイル名を表示し終了コード2)になる。",
+      "must": true
+    },
+    {
+      "id": "R20",
+      "kind": "goal",
+      "text": "UI全体の固定文字列(ヘッダ、画面名、空表示、ヘルプとフッタのキー説明、曜日、日付表記、ステータスメッセージ、入力欄ラベル、詳細画面の項目名、URL選択画面、確認・エラーメッセージ、設定エラー等)が選択言語で表示される。文字列は中央の翻訳カタログ等で一元管理され、英語と日本語で同じキー集合が揃っていることがテストで保証される。",
+      "must": true
+    },
+    {
+      "id": "R21",
+      "kind": "constraint",
+      "text": "ユーザーデータ(タイトル、メモ、タグ、project名、URL)やTaskwarriorの生データ・taskコマンドの出力は翻訳・変換しない。保存されるデータ形式(UDA名や値)は言語によって変わらず、言語を切り替えても同じTaskwarriorデータがそのまま使える。",
+      "must": true
+    },
+    {
+      "id": "R22",
+      "kind": "constraint",
+      "text": "既存の画面構成・キー操作・テーマ・狭い端末での表示崩れ防止(英語の長い文言を含む)を維持する。両言語で80x24と60x20程度の画面が崩れない。",
+      "must": true
+    },
+    {
+      "id": "R23",
+      "kind": "constraint",
+      "text": "テストは実行環境のロケール(LANG等)に依存せず決定的に通る。言語選択の優先順位・ロケール判定・不正値・両言語のUI表示を検証するテストを追加する。同梱のサンプル設定 examples/config.toml では language をコメントアウトした例として示し、未指定時のロケール判定を妨げない。README と docs/spec.md に言語設定・判定順位・翻訳対象外を記載する。",
+      "must": true
+    }
+  ],
+  "out_of_scope": [
+    "Taskwarriorの同期サーバ(taskchampion sync)設定・同期機能",
+    "Taskwarriorの全レポート・フィルタ言語の再実装",
+    "GUI・Web UI",
+    "繰り返しタスクや依存関係の編集UI",
+    "GitHubへのcommit・push(発注者が行う)",
+    "en/jp以外の言語",
+    "ユーザーデータの翻訳",
+    "起動中の言語切り替えUI"
+  ]
+}

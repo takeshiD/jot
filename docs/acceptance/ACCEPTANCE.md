@@ -33,3 +33,37 @@ Jot は [kenshu-loop](https://github.com/takeshiD/kenshu-loop)（発注・納品
 - Go のモジュールパスが `github.com/tkcd/jot` のままで、GitHub の `takeshiD/jot` と一致しない。clone して `make build` すればビルドできるが、`go install github.com/takeshiD/jot/cmd/jot@latest` は使えない
 - 既定ブラウザ（`xdg-open`）で実際に開く動作は、検収条件（実ブラウザを開かない）のため試していない
 - 仕様上の未解決事項は [../spec.md](../spec.md) §8 を参照
+
+---
+
+# v2: 多言語化(英語 / 日本語)の検収結果
+
+- 発注書: [order-v2-i18n.json](order-v2-i18n.json)（要求23件。R1〜R16 は v1 のまま回帰確認の対象として残し、R17〜R23 を追加）
+- 受入記録: [DELIVERY-v2-i18n.md](DELIVERY-v2-i18n.md)
+- 発注の訂正: 最初の発注では日本語コードを `jp` としていたが、利用者の指示で標準の `ja` に変更した。`jp` のまま走っていた実行は、受注AIの作業中(約2.5分、費用 $0)に SIGINT で中断した。途中の成果物は破棄し、`ja` に直した発注書で `init --force` して再発注した。
+
+| ラウンド | 内容 | 結果 |
+|---|---|---|
+| 1 | 納品(基準 C1〜C33)。オーケストレータが新しい環境で機械検査31件を再実行(失敗0)。利用者試行10シナリオ(失敗0・未確認5)。C17・C33 はコードを読んで審査 | **合格(accepted)**。R1〜R23 をすべて満たす |
+
+- 受入: 2026-11-25T07:34:18Z。成果物 fingerprint `217bbfe07170bf6e75fad0f5`、基準版 `0c85ff24f729057c`
+- 費用 約 $10.02、所要 約22.5分
+
+## 発注者側の追加確認
+
+- `go test -count=1 ./...` を、ロケール環境変数なし・`C`・`ja_JP.UTF-8`・`en_US.UTF-8` の4通りで実行し、すべて ok（cmd/jot, config, i18n, today, tw, ui, urls）。`go vet` も指摘なし
+- `make build-linux-amd64` を2回実行し、どちらも sha256 `334b7ec0c81f75866aa9ab1ce6913120ba032204992eefaf5de7e4843e91009c` で一致
+- `--check-config` の結果
+  - `language = "jp"` / `1` → 終了コード 2
+  - `"ja"` → OK
+  - `LANG=ja_JP.UTF-8` のときはエラー文が日本語、`LC_MESSAGES=C` + `LANG=ja_JP.UTF-8` のときは英語
+- 隔離データで実際に操作し、次を確認した
+  - `LANG=ja_JP.UTF-8` で起動すると日本語UI（`全タスク`、`(水)`、`Todayに追加しました`）
+  - 同じロケールでも `language = "en"` の設定で起動すると英語UI（`All`、`Wed`、`Added to Today`）
+  - タイトル・タグ・project 名は翻訳されず、`task export` の `jottoday`/`jotorder` は言語によらず同じ値
+
+## v2 の後続事項（受入を妨げない）
+
+- 60桁で英語の「Today is empty…」が単語の途中で折り返される
+- 長いエラーや確認文の末尾が狭い幅で切れる（原因と操作は見える）
+- 未知のコマンドラインオプションに対する Go 標準の `flag` のエラーは英語のまま（直後のヘルプは翻訳される）

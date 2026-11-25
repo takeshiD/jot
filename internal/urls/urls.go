@@ -2,21 +2,21 @@
 package urls
 
 import (
-	"errors"
-	"fmt"
 	"net/url"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
 	"unicode"
+
+	"github.com/tkcd/jot/internal/i18n"
 )
 
 // Link is a URL-like token found in text.
 type Link struct {
 	Raw    string
-	Safe   bool   // only safe links can be opened
-	Reason string // why it is blocked
+	Safe   bool  // only safe links can be opened
+	Reason error // why it is blocked (translatable; see i18n.Lang.Err)
 }
 
 // Anything that looks like scheme:... (scheme://, or the dangerous
@@ -36,7 +36,7 @@ func Extract(text string) []Link {
 		err := Check(m)
 		l := Link{Raw: m, Safe: err == nil}
 		if err != nil {
-			l.Reason = err.Error()
+			l.Reason = err
 		}
 		out = append(out, l)
 	}
@@ -47,23 +47,23 @@ func Extract(text string) []Link {
 // whitespace/control characters, and no leading '-'.
 func Check(raw string) error {
 	if raw == "" {
-		return errors.New("空のURL")
+		return i18n.E("url.empty")
 	}
 	for _, r := range raw {
 		if unicode.IsControl(r) || unicode.IsSpace(r) {
-			return errors.New("制御文字/空白を含む")
+			return i18n.E("url.control")
 		}
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return errors.New("URLとして解析できない")
+		return i18n.E("url.unparsable")
 	}
 	s := strings.ToLower(u.Scheme)
 	if s != "http" && s != "https" {
-		return fmt.Errorf("%s: は許可されていない (http/https のみ)", u.Scheme)
+		return i18n.E("url.scheme", u.Scheme)
 	}
 	if u.Host == "" || u.Hostname() == "" {
-		return errors.New("ホストがない")
+		return i18n.E("url.no_host")
 	}
 	return nil
 }
@@ -111,7 +111,7 @@ func Open(cmdline []string, raw string) ([]string, error) {
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	if err := cmd.Start(); err != nil {
-		return argv, fmt.Errorf("ブラウザを起動できません (%s): %v", argv[0], err)
+		return argv, i18n.Wrap(err, "url.launch_failed", argv[0], err)
 	}
 	go func() { _ = cmd.Wait() }()
 	return argv, nil
@@ -120,11 +120,11 @@ func Open(cmdline []string, raw string) ([]string, error) {
 // trimTrailing removes sentence punctuation after a URL, and closing
 // brackets that have no matching opening bracket inside the URL.
 func trimTrailing(m string) string {
-	pairs := map[rune]rune{')': '(', ']': '[', '}': '{', '）': '（', '」': '「', '>': '<'}
+	pairs := map[rune]rune{')': '(', ']': '[', '}': '{', '）': '（', '」': '「', '>': '<'} // i18n:ignore (punctuation, not UI text)
 	for m != "" {
 		r := []rune(m)
 		last := r[len(r)-1]
-		if strings.ContainsRune(".,;:!?、。", last) {
+		if strings.ContainsRune(".,;:!?、。", last) { // i18n:ignore (punctuation, not UI text)
 			m = string(r[:len(r)-1])
 			continue
 		}

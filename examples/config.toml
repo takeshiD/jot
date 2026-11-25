@@ -1,6 +1,13 @@
 # Jot 設定例 — ~/.config/jot/config.toml にコピーして使う
 # (場所は $XDG_CONFIG_HOME/jot/config.toml。$JOT_CONFIG または --config で変更可)
 
+# 表示言語 / display language: "en" | "ja" (only these two values).
+# 未指定なら LC_ALL > LC_MESSAGES > LANG の最初の空でない値で決まる
+# (ja_JP.UTF-8 / ja_JP / ja なら日本語、それ以外・未設定・C/POSIX は英語)。
+# If unset: the first non-empty of LC_ALL, LC_MESSAGES, LANG decides
+# (Japanese locale -> ja, anything else -> en).
+# language = "ja"
+
 # テーマ: "dark" | "light" | "dusk"
 theme = "dark"
 

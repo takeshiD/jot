@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/tkcd/jot/internal/config"
+	"github.com/tkcd/jot/internal/i18n"
 	"github.com/tkcd/jot/internal/testenv"
 	"github.com/tkcd/jot/internal/tw"
 )
@@ -33,6 +34,11 @@ func newModel(t *testing.T, cfg *config.Config, clk *fakeClock, op *opened) *Mod
 	t.Helper()
 	if cfg == nil {
 		cfg = config.Default()
+	}
+	// Existing UI tests assert the Japanese texts; the language is fixed
+	// here so they never depend on the LANG of the test environment.
+	if cfg.Language == "" {
+		cfg.Lang = i18n.JA
 	}
 	o := Options{Config: cfg, Backend: testenv.Client(), Clock: clk.now, FakeTime: true}
 	if op != nil {
@@ -284,9 +290,15 @@ func TestLayoutNarrowAndThemes(t *testing.T) {
 	testenv.AddCLI(t, "project:仕事", "+タグ1", "+tag2", long)
 	testenv.AddCLI(t, "short")
 	clk := &fakeClock{at("2026-11-24 09:00:00")}
-	for _, theme := range ThemeNames {
+	for _, combo := range []struct {
+		theme string
+		lang  i18n.Lang
+	}{{"dark", i18n.JA}, {"light", i18n.JA}, {"dusk", i18n.JA}, {"dark", i18n.EN}, {"light", i18n.EN}, {"dusk", i18n.EN}} {
+		theme := combo.theme
 		cfg := config.Default()
 		cfg.Theme = theme
+		cfg.Language = string(combo.lang)
+		cfg.Lang = combo.lang
 		m := newModel(t, cfg, clk, nil)
 		key(m, "tab")
 		for _, sz := range [][2]int{{80, 24}, {60, 20}, {40, 12}, {120, 40}} {
@@ -351,7 +363,9 @@ func TestCustomKeybindings(t *testing.T) {
 
 // task failures are shown on screen; the app keeps running.
 func TestTaskFailureShown(t *testing.T) {
-	m := New(Options{Config: config.Default(), Backend: tw.New(filepath.Join(t.TempDir(), "missing-task"))})
+	cfg := config.Default()
+	cfg.Lang = i18n.JA
+	m := New(Options{Config: cfg, Backend: tw.New(filepath.Join(t.TempDir(), "missing-task"))})
 	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
 	key(m, "space", "a")
 	typeText(m, "x")

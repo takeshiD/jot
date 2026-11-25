@@ -11,34 +11,19 @@ import (
 	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/tkcd/jot/internal/i18n"
 )
 
-// Action names that keys can be bound to.
-var Actions = []struct{ Name, Help string }{
-	{"up", "上へ"},
-	{"down", "下へ"},
-	{"top", "先頭へ"},
-	{"bottom", "末尾へ"},
-	{"toggle_today", "Todayに追加/解除"},
-	{"switch_view", "Today/全タスク 切替"},
-	{"view_today", "Today画面"},
-	{"view_all", "全タスク画面"},
-	{"move_up", "Today内で上へ移動"},
-	{"move_down", "Today内で下へ移動"},
-	{"add", "タスク追加"},
-	{"edit_title", "タイトル編集"},
-	{"edit_note", "メモ編集(複数行)"},
-	{"edit_tags", "タグ編集"},
-	{"edit_project", "グループ(project)編集"},
-	{"toggle_done", "完了/完了取消"},
-	{"delete", "削除"},
-	{"open_url", "メモ内URLを開く"},
-	{"detail", "詳細表示"},
-	{"toggle_group", "グループ表示 切替"},
-	{"toggle_completed", "完了済みの表示 切替"},
-	{"refresh", "再読込"},
-	{"help", "ヘルプ"},
-	{"quit", "終了"},
+// Action names that keys can be bound to (in help-screen order). Their
+// descriptions are the i18n keys "action.<Name>".
+var Actions = []struct{ Name string }{
+	{"up"}, {"down"}, {"top"}, {"bottom"},
+	{"toggle_today"}, {"switch_view"}, {"view_today"}, {"view_all"},
+	{"move_up"}, {"move_down"},
+	{"add"}, {"edit_title"}, {"edit_note"}, {"edit_tags"}, {"edit_project"},
+	{"toggle_done"}, {"delete"}, {"open_url"}, {"detail"},
+	{"toggle_group"}, {"toggle_completed"}, {"refresh"}, {"help"}, {"quit"},
 }
 
 // Presets of keybindings.
@@ -65,6 +50,7 @@ var Presets = map[string]map[string][]string{
 
 // Config is the parsed configuration.
 type Config struct {
+	Language     string              `toml:"language"`
 	Theme        string              `toml:"theme"`
 	Preset       string              `toml:"preset"`
 	DayStartHour int                 `toml:"day_start_hour"`
@@ -79,6 +65,10 @@ type Config struct {
 	} `toml:"taskwarrior"`
 
 	Path     string              `toml:"-"` // file loaded ("" if none)
+	Lang     i18n.Lang           `toml:"-"` // resolved display language
+	LangFrom string              `toml:"-"` // "config", "locale" or "default"
+	LangVar  string              `toml:"-"` // deciding locale variable, e.g. "LANG=ja_JP.UTF-8"
+	langSet  bool                // `language` present in the file (even if "")
 	Bindings map[string][]string `toml:"-"` // action -> keys (resolved)
 	KeyMap   map[string]string   `toml:"-"` // key -> action (resolved)
 }
@@ -105,51 +95,102 @@ func Resolve(flag string) (path string, explicit bool) {
 	return DefaultPath(), false
 }
 
-// Load reads and validates the config at path. A missing default file is
-// not an error (defaults are used).
+// Load reads and validates the config at path, taking the locale from the
+// process environment. A missing default file is not an error (defaults are
+// used). Errors are *i18n.Error values; render them with ErrorLang.
 func Load(path string, explicit bool) (*Config, error) {
+	return LoadEnv(path, explicit, os.Getenv)
+}
+
+// LoadEnv is Load with an explicit environment lookup (for tests).
+func LoadEnv(path string, explicit bool, getenv func(string) string) (*Config, error) {
 	c := &Config{}
 	b, err := os.ReadFile(path)
 	switch {
 	case err == nil:
 		md, err := toml.Decode(string(b), c)
 		if err != nil {
-			return nil, fmt.Errorf("%s: TOMLの構文エラー: %v", path, err)
+			return nil, i18n.E("cfg.toml", path, err.Error())
 		}
 		if und := md.Undecoded(); len(und) > 0 {
 			var ks []string
 			for _, k := range und {
 				ks = append(ks, k.String())
 			}
-			return nil, fmt.Errorf("%s: 不明な設定項目: %s", path, strings.Join(ks, ", "))
+			return nil, i18n.E("cfg.unknown_keys", path, strings.Join(ks, ", "))
 		}
 		c.Path = path
+		c.langSet = md.IsDefined("language")
 	case errors.Is(err, os.ErrNotExist) && !explicit:
 	default:
-		return nil, fmt.Errorf("設定ファイルを読めません: %v", err)
+		return nil, i18n.E("cfg.cannot_read", err.Error())
 	}
-	if err := c.finish(); err != nil {
+	if err := c.finish(getenv); err != nil {
 		if c.Path != "" {
-			return nil, fmt.Errorf("%s: %v", c.Path, err)
+			return nil, i18n.E("cfg.in_file", c.Path, err)
 		}
 		return nil, err
 	}
 	return c, nil
 }
 
-// Default returns the built-in configuration.
+// Default returns the built-in configuration. Its language is English; it
+// does not look at the environment.
 func Default() *Config {
 	c := &Config{}
-	if err := c.finish(); err != nil {
+	if err := c.finish(func(string) string { return "" }); err != nil {
 		panic(err)
 	}
 	return c
 }
 
+// ResolveLang decides the display language: a valid `language` setting wins;
+// otherwise the first non-empty of LC_ALL, LC_MESSAGES, LANG (Japanese
+// locale -> ja, anything else -> en); otherwise en.
+func ResolveLang(setting string, set bool, getenv func(string) string) (lang i18n.Lang, from, envVar string, err error) {
+	if set || setting != "" {
+		l, ok := i18n.Parse(setting)
+		if !ok {
+			return i18n.Default, "", "", i18n.E("cfg.bad_language", setting)
+		}
+		return l, "config", "", nil
+	}
+	l, v := i18n.FromLocale(getenv)
+	if v == "" {
+		return l, "default", "", nil
+	}
+	return l, "locale", v, nil
+}
+
+// ErrorLang returns the language used to report problems with the config
+// file at path: its `language` value if that alone is valid, else the
+// locale (so an invalid file still gets messages in a sensible language).
+func ErrorLang(path string, getenv func(string) string) i18n.Lang {
+	var probe struct {
+		Language any `toml:"language"`
+	}
+	if b, err := os.ReadFile(path); err == nil {
+		if _, err := toml.Decode(string(b), &probe); err == nil {
+			if s, ok := probe.Language.(string); ok {
+				if l, ok := i18n.Parse(s); ok {
+					return l
+				}
+			}
+		}
+	}
+	l, _ := i18n.FromLocale(getenv)
+	return l
+}
+
 // ThemeNames is set by the ui package (avoids an import cycle).
 var ThemeNames = []string{"dark", "light", "dusk"}
 
-func (c *Config) finish() error {
+func (c *Config) finish(getenv func(string) string) error {
+	lang, from, envVar, err := ResolveLang(c.Language, c.langSet, getenv)
+	if err != nil {
+		return err
+	}
+	c.Lang, c.LangFrom, c.LangVar = lang, from, envVar
 	if c.Theme == "" {
 		c.Theme = "dark"
 	}
@@ -158,17 +199,17 @@ func (c *Config) finish() error {
 		ok = ok || n == c.Theme
 	}
 	if !ok {
-		return fmt.Errorf("不明なテーマ %q (使えるもの: %s)", c.Theme, strings.Join(ThemeNames, ", "))
+		return i18n.E("cfg.bad_theme", c.Theme, strings.Join(ThemeNames, ", "))
 	}
 	if c.Preset == "" {
 		c.Preset = "vim"
 	}
 	base, ok := Presets[c.Preset]
 	if !ok {
-		return fmt.Errorf("不明なプリセット %q (使えるもの: vim, arrows)", c.Preset)
+		return i18n.E("cfg.bad_preset", c.Preset)
 	}
 	if c.DayStartHour < 0 || c.DayStartHour > 23 {
-		return fmt.Errorf("day_start_hour は 0〜23: %d", c.DayStartHour)
+		return i18n.E("cfg.bad_day_start", c.DayStartHour)
 	}
 	if c.CarryOver == nil {
 		t := true
@@ -179,10 +220,10 @@ func (c *Config) finish() error {
 		c.GroupBy = "project"
 	case "project", "none":
 	default:
-		return fmt.Errorf("group_by は \"project\" か \"none\": %q", c.GroupBy)
+		return i18n.E("cfg.bad_group_by", c.GroupBy)
 	}
 	if len(c.Browser.Command) > 0 && strings.TrimSpace(c.Browser.Command[0]) == "" {
-		return errors.New("browser.command の先頭(実行ファイル)が空です")
+		return i18n.E("cfg.empty_browser")
 	}
 	valid := map[string]bool{}
 	for _, a := range Actions {
@@ -199,15 +240,15 @@ func (c *Config) finish() error {
 	sort.Strings(names)
 	for _, action := range names {
 		if !valid[action] {
-			return fmt.Errorf("[keys] 不明な操作名 %q", action)
+			return i18n.E("cfg.unknown_action", action)
 		}
 		keys := c.Keys[action]
 		if len(keys) == 0 {
-			return fmt.Errorf("[keys] %s: キーが空です", action)
+			return i18n.E("cfg.empty_keys", action)
 		}
 		for _, k := range keys {
 			if err := ValidKey(k); err != nil {
-				return fmt.Errorf("[keys] %s: %v", action, err)
+				return i18n.E("cfg.key_error", action, err)
 			}
 		}
 		c.Bindings[action] = keys
@@ -230,7 +271,7 @@ func (c *Config) finish() error {
 				if prev, dup := c.KeyMap[nk]; dup && prev != a {
 					if user {
 						if _, prevUser := c.Keys[prev]; prevUser {
-							return fmt.Errorf("[keys] キー %q が %s と %s に重複しています", k, prev, a)
+							return i18n.E("cfg.dup_key", k, prev, a)
 						}
 						c.Bindings[prev] = remove(c.Bindings[prev], nk)
 					}
@@ -241,7 +282,7 @@ func (c *Config) finish() error {
 	}
 	for _, a := range Actions {
 		if len(c.Bindings[a.Name]) == 0 && (a.Name == "quit" || a.Name == "help") {
-			return fmt.Errorf("[keys] %s にキーが残っていません", a.Name)
+			return i18n.E("cfg.no_key_left", a.Name)
 		}
 	}
 	return nil
@@ -286,7 +327,7 @@ func ValidKey(k string) error {
 	if strings.HasPrefix(k, "alt+") && utf8.RuneCountInString(k) == 5 {
 		return nil
 	}
-	return fmt.Errorf("不明なキー名 %q (例: \"j\", \"space\", \"ctrl+r\", \"shift+up\", \"f5\")", k)
+	return i18n.E("cfg.bad_key", k)
 }
 
 // NormalizeKey maps config names to Bubble Tea key strings.

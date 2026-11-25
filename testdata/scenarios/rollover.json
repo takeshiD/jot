@@ -1,4 +1,4 @@
-{"launch":{"argv":["sh","scripts/sandbox.sh","--seed"],"cols":80,"rows":24,"env":{"JOT_NOW":"2026-11-24T23:59:52"}},
+{"launch":{"argv":["sh","scripts/sandbox.sh","--seed"],"cols":80,"rows":24,"env":{"JOT_NOW":"2026-11-24T23:59:52","LC_ALL":"ja_JP.UTF-8"}},
 "steps":[
 {"do":"wait_text","text":"2026-11-24 (火)","timeout_ms":10000},
 {"do":"press","keys":["Tab"]},

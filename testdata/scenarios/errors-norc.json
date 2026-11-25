@@ -1,4 +1,4 @@
-{"launch":{"argv":["sh","-c","TASKRC=$HOME/no-such-taskrc TASKDATA=$HOME/no-data exec ./bin/jot"],"cols":80,"rows":24},
+{"launch":{"argv":["sh","-c","TASKRC=$HOME/no-such-taskrc TASKDATA=$HOME/no-data exec ./bin/jot"],"cols":80,"rows":24,"env":{"LC_ALL":"ja_JP.UTF-8"}},
 "steps":[
 {"do":"wait_text","text":"エラー: task","timeout_ms":10000},
 {"do":"expect_text","text":"Cannot proceed without rc file"},

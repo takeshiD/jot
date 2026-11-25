@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tkcd/jot/internal/i18n"
 	"github.com/tkcd/jot/internal/testenv"
 	"github.com/tkcd/jot/internal/tw"
 )
@@ -138,7 +139,7 @@ func TestSetTextExactWithFallback(t *testing.T) {
 func TestMissingBinary(t *testing.T) {
 	c := tw.New(filepath.Join(t.TempDir(), "no-such-task"))
 	_, err := c.Export()
-	if err == nil || !strings.Contains(err.Error(), "見つかりません") {
+	if err == nil || !strings.Contains(i18n.JA.Err(err), "見つかりません") {
 		t.Fatalf("err = %v", err)
 	}
 }

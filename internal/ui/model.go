@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tkcd/jot/internal/config"
+	"github.com/tkcd/jot/internal/i18n"
 	"github.com/tkcd/jot/internal/today"
 	"github.com/tkcd/jot/internal/tw"
 	"github.com/tkcd/jot/internal/urls"
@@ -76,6 +77,7 @@ type row struct {
 // Model is the Bubble Tea model.
 type Model struct {
 	cfg      *config.Config
+	tr       i18n.Lang
 	be       Backend
 	clock    func() time.Time
 	fake     bool
@@ -127,12 +129,15 @@ func New(o Options) *Model {
 		th = Themes["dark"]
 	}
 	m := &Model{
-		cfg: o.Config, be: o.Backend, clock: o.Clock, fake: o.FakeTime, opener: o.Opener,
+		cfg: o.Config, tr: o.Config.Lang, be: o.Backend, clock: o.Clock, fake: o.FakeTime, opener: o.Opener,
 		rules:   today.Rules{DayStartHour: o.Config.DayStartHour, CarryOver: o.Config.CarryOverEnabled()},
 		theme:   th,
 		width:   80,
 		height:  24,
 		grouped: o.Config.GroupBy != "none",
+	}
+	if _, ok := i18n.Parse(string(m.tr)); !ok {
+		m.tr = i18n.Default
 	}
 	m.day = m.rules.Day(m.clock())
 	m.reload("")
@@ -149,7 +154,10 @@ func tick() tea.Cmd {
 func (m *Model) Init() tea.Cmd { return tick() }
 
 func (m *Model) setStatus(s string) { m.status, m.statusErr = s, false }
-func (m *Model) setError(err error) { m.status, m.statusErr = "エラー: "+err.Error(), true }
+func (m *Model) setError(err error) { m.status, m.statusErr = m.tr.T("st.error", err), true }
+
+// T translates a fixed UI string into the selected language.
+func (m *Model) T(key string, args ...any) string { return m.tr.T(key, args...) }
 
 // reload re-reads all tasks via `task export` and rebuilds rows.
 func (m *Model) reload(selectUUID string) bool {
@@ -227,7 +235,7 @@ func (m *Model) rebuild(selectUUID string) {
 			for _, n := range names {
 				h := n
 				if h == "" {
-					h = "(グループなし)"
+					h = m.T("ui.no_group")
 				}
 				rows = append(rows, row{header: h, count: len(groups[n])})
 				for i := range groups[n] {
@@ -329,7 +337,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if d := m.rules.Day(m.now()); d != m.day {
 			m.day = d
 			m.rebuild("")
-			m.setStatus("日付が変わりました: " + d)
+			m.setStatus(m.T("st.day_changed", d))
 		}
 		return m, tick()
 	case tea.KeyMsg:
@@ -379,7 +387,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.doDelete(m.confirmUUID)
 		default:
 			m.mode = m.prevMode
-			m.setStatus("削除を取り消しました")
+			m.setStatus(m.T("st.delete_cancelled"))
 		}
 		return m, nil
 	case modeDetail:
@@ -445,9 +453,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.rebuild("")
 		if m.grouped {
-			m.setStatus("グループ表示: project")
+			m.setStatus(m.T("st.group_project"))
 		} else {
-			m.setStatus("グループ表示: なし")
+			m.setStatus(m.T("st.group_none"))
 		}
 	case "toggle_completed":
 		m.showDone = !m.showDone
@@ -456,13 +464,13 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.rebuild("")
 		if m.showDone {
-			m.setStatus("完了済みタスクを表示")
+			m.setStatus(m.T("st.show_done"))
 		} else {
-			m.setStatus("完了済みタスクを非表示")
+			m.setStatus(m.T("st.hide_done"))
 		}
 	case "refresh":
 		if m.reload("") {
-			m.setStatus(fmt.Sprintf("再読込しました (%d件)", len(m.tasks)))
+			m.setStatus(m.T("st.reloaded", len(m.tasks)))
 		}
 	case "add":
 		m.startInput(inAdd, "", "")
@@ -472,7 +480,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "move_up", "move_down":
 		if m.view != viewToday || m.mode == modeDetail {
-			m.setStatus("並べ替えはToday画面で行えます (tab で切替)")
+			m.setStatus(m.T("st.reorder_only"))
 		} else if t != nil {
 			d := -1
 			if act == "move_down" {
@@ -504,7 +512,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if t != nil {
 			m.prevMode = m.mode
 			m.mode, m.confirmUUID = modeConfirm, t.UUID
-			m.status, m.statusErr = fmt.Sprintf("「%s」を削除しますか? (y: 削除 / その他: 取消)", t.Description), true
+			m.status, m.statusErr = m.T("st.confirm_delete", t.Description), true
 		}
 	case "open_url":
 		if t != nil {
@@ -543,16 +551,16 @@ func (m *Model) toggleToday(t tw.Task) {
 	st := m.rules.Of(t, m.now())
 	if st != today.NotToday {
 		err := m.be.Modify(t.UUID, tw.UDAToday+":", tw.UDAOrder+":")
-		m.after(err, "Todayから外しました: "+t.Description, "")
+		m.after(err, m.T("st.today_removed", t.Description), "")
 		return
 	}
 	if !t.IsPending() {
-		m.setStatus("完了済みのタスクはTodayに追加できません (x で完了取消)")
+		m.setStatus(m.T("st.today_completed"))
 		return
 	}
 	order := today.NextOrder(m.todayList())
 	err := m.be.Modify(t.UUID, tw.UDAToday+":"+m.day, fmt.Sprintf("%s:%d", tw.UDAOrder, order))
-	m.after(err, "Todayに追加しました: "+t.Description, t.UUID)
+	m.after(err, m.T("st.today_added", t.Description), t.UUID)
 }
 
 func (m *Model) move(t tw.Task, d int) {
@@ -573,13 +581,13 @@ func (m *Model) move(t tw.Task, d int) {
 			return
 		}
 	}
-	m.after(nil, "並べ替えました", t.UUID)
+	m.after(nil, m.T("st.reordered"), t.UUID)
 }
 
 func (m *Model) toggleDone(t tw.Task) {
 	if t.IsCompleted() {
 		err := m.be.Undone(t.UUID)
-		m.after(err, "完了を取り消しました: "+t.Description, t.UUID)
+		m.after(err, m.T("st.undone", t.Description), t.UUID)
 		return
 	}
 	var err error
@@ -588,7 +596,7 @@ func (m *Model) toggleDone(t tw.Task) {
 	} else {
 		err = m.be.Done(t.UUID)
 	}
-	m.after(err, "完了しました: "+t.Description+" (x で取消)", t.UUID)
+	m.after(err, m.T("st.done", t.Description), t.UUID)
 }
 
 func (m *Model) doDelete(uuid string) {
@@ -598,7 +606,7 @@ func (m *Model) doDelete(uuid string) {
 		name = t.Description
 	}
 	err := m.be.Delete(uuid)
-	m.after(err, "削除しました: "+name, "")
+	m.after(err, m.T("st.deleted", name), "")
 }
 
 // --- single-line input ---
@@ -611,23 +619,23 @@ func (m *Model) startInput(kind inputKind, uuid, value string) {
 	ti.SetValue(value)
 	ti.CursorEnd()
 	ti.Focus()
-	ti.Width = max(10, m.width-len([]rune(inputLabel(kind)))*2-2)
+	ti.Width = max(10, m.width-width(m.inputLabel(kind))-2)
 	m.input, m.inKind, m.inUUID = ti, kind, uuid
 	m.prevMode = m.mode
 	m.mode = modeInput
 	m.status = ""
 }
 
-func inputLabel(k inputKind) string {
+func (m *Model) inputLabel(k inputKind) string {
 	switch k {
 	case inAdd:
-		return "新規タスク: "
+		return m.T("in.add")
 	case inTitle:
-		return "タイトル: "
+		return m.T("in.title")
 	case inTags:
-		return "タグ(空白区切り): "
+		return m.T("in.tags")
 	default:
-		return "グループ(project): "
+		return m.T("in.project")
 	}
 }
 
@@ -644,7 +652,7 @@ func (m *Model) keyInput(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "ctrl+c":
 		m.mode = m.prevMode
-		m.setStatus("取り消しました")
+		m.setStatus(m.T("st.cancelled"))
 		return m, nil
 	case "enter":
 		m.mode = m.prevMode
@@ -661,7 +669,7 @@ func (m *Model) commitInput(v string) {
 	case inAdd:
 		title := tw.CleanTitle(v)
 		if title == "" {
-			m.setStatus("空のタイトルは追加しません")
+			m.setStatus(m.T("st.empty_add"))
 			return
 		}
 		var mods []string
@@ -669,18 +677,18 @@ func (m *Model) commitInput(v string) {
 			mods = append(mods, tw.UDAToday+":"+m.day, fmt.Sprintf("%s:%d", tw.UDAOrder, today.NextOrder(m.todayList())))
 		}
 		u, err := m.be.Add(title, mods...)
-		where := ""
+		msg := m.T("st.added", title)
 		if m.view == viewToday {
-			where = " (Today)"
+			msg = m.T("st.added_today", title)
 		}
-		m.after(err, "追加しました"+where+": "+title, u)
+		m.after(err, msg, u)
 	case inTitle:
 		title := tw.CleanTitle(v)
 		if title == "" {
-			m.setStatus("タイトルは空にできません")
+			m.setStatus(m.T("st.title_empty"))
 			return
 		}
-		m.after(m.be.SetText(m.inUUID, "description", title), "タイトルを変更しました", m.inUUID)
+		m.after(m.be.SetText(m.inUUID, "description", title), m.T("st.title_changed"), m.inUUID)
 	case inTags:
 		t := m.findTask(m.inUUID)
 		if t == nil {
@@ -692,7 +700,7 @@ func (m *Model) commitInput(v string) {
 			f = strings.TrimPrefix(f, "+")
 			f = strings.TrimPrefix(f, "#")
 			if !tw.ValidTag(f) {
-				m.setError(fmt.Errorf("使えないタグ名: %q (空白・: ( ) 引用符は不可)", f))
+				m.setError(i18n.E("err.bad_tag", f))
 				return
 			}
 			if !want[f] && !t.HasTag(f) {
@@ -706,17 +714,17 @@ func (m *Model) commitInput(v string) {
 			}
 		}
 		if len(args) == 0 {
-			m.setStatus("タグは変更されていません")
+			m.setStatus(m.T("st.tags_unchanged"))
 			return
 		}
-		m.after(m.be.Modify(m.inUUID, args...), "タグを更新しました: "+strings.Join(args, " "), m.inUUID)
+		m.after(m.be.Modify(m.inUUID, args...), m.T("st.tags_updated", strings.Join(args, " ")), m.inUUID)
 	case inProject:
 		p := strings.TrimSpace(v)
 		if !tw.ValidProject(p) {
-			m.setError(fmt.Errorf("使えないグループ名: %q (空白・引用符・括弧は不可)", p))
+			m.setError(i18n.E("err.bad_project", p))
 			return
 		}
-		m.after(m.be.Modify(m.inUUID, "project:"+p), "グループを変更しました", m.inUUID)
+		m.after(m.be.Modify(m.inUUID, "project:"+p), m.T("st.project_changed"), m.inUUID)
 	}
 }
 
@@ -745,7 +753,7 @@ func (m *Model) resizeEditors() {
 		m.note.SetHeight(max(3, m.height-4))
 	}
 	if m.mode == modeInput {
-		m.input.Width = max(10, m.width-len([]rune(inputLabel(m.inKind)))*2-2)
+		m.input.Width = max(10, m.width-width(m.inputLabel(m.inKind))-2)
 	}
 }
 
@@ -762,12 +770,12 @@ func (m *Model) keyNote(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc":
 		m.mode = m.prevMode
-		m.setStatus("メモの編集を取り消しました")
+		m.setStatus(m.T("st.note_cancelled"))
 		return m, nil
 	case "ctrl+s":
 		m.mode = m.prevMode
 		v := strings.TrimRight(strings.ReplaceAll(m.note.Value(), "\r\n", "\n"), "\n ")
-		m.after(m.be.SetText(m.noteUUID, tw.UDANote, v), "メモを保存しました", m.noteUUID)
+		m.after(m.be.SetText(m.noteUUID, tw.UDANote, v), m.T("st.note_saved"), m.noteUUID)
 		return m, nil
 	}
 	var cmd tea.Cmd
@@ -788,7 +796,7 @@ func taskLinks(t tw.Task) []urls.Link {
 func (m *Model) startURL(t tw.Task) {
 	links := taskLinks(t)
 	if len(links) == 0 {
-		m.setStatus("このタスクのメモにURLはありません (n でメモ編集)")
+		m.setStatus(m.T("st.no_urls"))
 		return
 	}
 	m.urlList = links
@@ -832,7 +840,7 @@ func (m *Model) openURL(i int) {
 	}
 	l := m.urlList[i]
 	if !l.Safe {
-		m.status, m.statusErr = "開きません (安全でないURL): "+l.Reason, true
+		m.status, m.statusErr = m.T("st.unsafe_url", l.Reason), true
 		return
 	}
 	m.mode = m.prevMode
@@ -840,7 +848,7 @@ func (m *Model) openURL(i int) {
 		m.setError(err)
 		return
 	}
-	m.setStatus("開きました: " + l.Raw)
+	m.setStatus(m.T("st.opened", l.Raw))
 }
 
 // splitRunes turns a KeyRunes message into one message per rune, so that

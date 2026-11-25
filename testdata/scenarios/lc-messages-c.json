@@ -1,0 +1,9 @@
+{"launch":{"argv":["sh","scripts/sandbox.sh","--seed"],"cols":80,"rows":24,"env":{"LC_ALL":"","LC_MESSAGES":"C","LANG":"ja_JP.UTF-8","JOT_NOW":"2026-11-24T10:00:00"}},
+"steps":[
+{"do":"wait_text","text":"Today is empty","timeout_ms":10000},
+{"do":"expect_text","text":"All 5","row":0},
+{"do":"expect_text","text":"2026-11-24 Tue","row":0},
+{"do":"expect_no_text","text":"全タスク"},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0}
+]}

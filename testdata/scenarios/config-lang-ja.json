@@ -1,0 +1,8 @@
+{"launch":{"argv":["sh","scripts/sandbox.sh","--seed","--","./bin/jot","--config","testdata/config-lang-ja.toml"],"cols":80,"rows":24,"env":{"LC_ALL":"C","LANG":"C","JOT_NOW":"2026-11-24T10:00:00"}},
+"steps":[
+{"do":"wait_text","text":"Todayは空です","timeout_ms":10000},
+{"do":"expect_text","text":"全タスク 5","row":0},
+{"do":"expect_text","text":"? ヘルプ  q 終了","row":23},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0}
+]}

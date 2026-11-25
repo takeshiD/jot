@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os/exec"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tkcd/jot/internal/i18n"
 )
 
 // Client runs the Taskwarrior CLI. All reads use `task export`; all writes use
@@ -20,7 +21,7 @@ type Client struct {
 }
 
 // ErrNotInstalled is returned when the task binary cannot be executed.
-var ErrNotInstalled = errors.New("task コマンドが見つかりません")
+var ErrNotInstalled = i18n.E("tw.not_installed")
 
 // Error is a failed task invocation.
 type Error struct {
@@ -115,7 +116,7 @@ func (c *Client) run(stdin []byte, verbose string, args ...string) (string, erro
 			return out.String(), nil
 		}
 		if notFound(err) {
-			return "", fmt.Errorf("%w (%s): PATH またはJOT_TASK/設定の taskwarrior.command を確認してください", ErrNotInstalled, c.Bin)
+			return "", i18n.Wrap(ErrNotInstalled, "tw.not_installed_hint", c.Bin)
 		}
 		lastErr = &Error{Args: args, Stderr: errb.String() + "\n" + out.String(), Err: err}
 		if !strings.Contains(strings.ToLower(errb.String()), "locked") {
@@ -132,7 +133,7 @@ func (c *Client) Version() (string, error) {
 	if err != nil {
 		var ee *exec.Error
 		if errors.As(err, &ee) {
-			return "", fmt.Errorf("%w (%s)", ErrNotInstalled, c.Bin)
+			return "", i18n.Wrap(ErrNotInstalled, "tw.not_installed_bin", c.Bin)
 		}
 		return "", err
 	}
@@ -142,11 +143,11 @@ func (c *Client) Version() (string, error) {
 func parseExport(out string) ([]Task, error) {
 	i := strings.Index(out, "[")
 	if i < 0 {
-		return nil, fmt.Errorf("task export の出力を解析できません: %q", firstLine(out))
+		return nil, i18n.E("tw.export_unparsable", firstLine(out))
 	}
 	var ts []Task
 	if err := json.Unmarshal([]byte(out[i:]), &ts); err != nil {
-		return nil, fmt.Errorf("task export のJSONを解析できません: %v", err)
+		return nil, i18n.Wrap(err, "tw.export_json", err)
 	}
 	return ts, nil
 }
@@ -174,7 +175,7 @@ func (c *Client) Get(uuid string) (Task, error) {
 		return Task{}, err
 	}
 	if len(ts) == 0 {
-		return Task{}, fmt.Errorf("タスク %s が見つかりません", short(uuid))
+		return Task{}, i18n.E("tw.task_not_found", short(uuid))
 	}
 	return ts[0], nil
 }
@@ -191,7 +192,7 @@ var createdRe = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 
 func checkUUID(u string) error {
 	if !uuidRe.MatchString(u) {
-		return fmt.Errorf("不正なUUID: %q", u)
+		return i18n.E("tw.bad_uuid", u)
 	}
 	return nil
 }
@@ -201,7 +202,7 @@ func checkUUID(u string) error {
 func (c *Client) Add(title string, mods ...string) (string, error) {
 	title = CleanTitle(title)
 	if title == "" {
-		return "", errors.New("タイトルが空です")
+		return "", i18n.E("tw.empty_title")
 	}
 	args := append([]string{"add"}, mods...)
 	args = append(args, "--", title)
@@ -211,7 +212,7 @@ func (c *Client) Add(title string, mods ...string) (string, error) {
 	}
 	u := createdRe.FindString(out)
 	if u == "" {
-		return "", fmt.Errorf("作成したタスクのUUIDを取得できません: %q", firstLine(out))
+		return "", i18n.E("tw.no_uuid", firstLine(out))
 	}
 	// Taskwarrior may still have reinterpreted parts; verify and repair.
 	if err := c.SetText(u, "description", title); err != nil {
@@ -265,7 +266,7 @@ func (c *Client) SetText(uuid, field, value string) error {
 	if field == "description" {
 		value = CleanTitle(value)
 		if value == "" {
-			return errors.New("タイトルが空です")
+			return i18n.E("tw.empty_title")
 		}
 	}
 	before, err := c.getRaw(uuid)
@@ -311,14 +312,14 @@ func (c *Client) getRaw(uuid string) (map[string]any, error) {
 	}
 	i := strings.Index(out, "[")
 	if i < 0 {
-		return nil, fmt.Errorf("task export の出力を解析できません")
+		return nil, i18n.E("tw.export_unparsable", firstLine(out))
 	}
 	var arr []map[string]any
 	if err := json.Unmarshal([]byte(out[i:]), &arr); err != nil {
 		return nil, err
 	}
 	if len(arr) == 0 {
-		return nil, fmt.Errorf("タスク %s が見つかりません", short(uuid))
+		return nil, i18n.E("tw.task_not_found", short(uuid))
 	}
 	return arr[0], nil
 }

@@ -10,7 +10,9 @@ Jot は、Taskwarrior の既存タスクから「今日やること(Today)」を
   Jot での変更は `task export` / `task list` にそのまま見え、`task` での変更は Jot の再読込(`r`)や再起動で反映されます。
 - Today・並び順・メモは UDA(`jottoday` / `jotorder` / `jotnote`)として Taskwarrior に保存されます。期限(due)・予定(scheduled)・状態は変更しません。
 
-仕様の詳細(Today/日付/順序/フィールド対応/URL起動の安全性/未解決事項)は [docs/spec.md](docs/spec.md) を参照してください。
+- 表示言語は英語(`en`)と日本語(`ja`)。設定 `language` か、未指定ならロケール(`LC_ALL` > `LC_MESSAGES` > `LANG`)で決まり、既定は英語です([表示言語](#表示言語-language))。
+
+仕様の詳細(Today/日付/順序/フィールド対応/URL起動の安全性/表示言語/未解決事項)は [docs/spec.md](docs/spec.md) を参照してください。
 
 ## 必要環境
 
@@ -57,8 +59,11 @@ JOT_SANDBOX=/tmp/jt scripts/sandbox.sh --seed   # 置き場所を変える
 | `--now TIME` / `$JOT_NOW` | 現在時刻の差し替え(テスト・検証用。例 `2026-11-24T23:59:55`。指定時刻から実時間で進む) |
 | `$JOT_TASK` | 使う `task` コマンドのパス (設定 `taskwarrior.command` より優先) |
 | `TASKRC` / `TASKDATA` | Taskwarrior 標準の環境変数。そのまま `task` に渡ります |
+| `LC_ALL` / `LC_MESSAGES` / `LANG` | 設定 `language` が無いときの表示言語の判定に使用(下記) |
 
 ## 画面
+
+(日本語表示の例。英語表示では `All 12`、`2026-11-24 Tue`、`? help  q quit  space Today  a add …` のようになります)
 
 ```
  Jot  Today 3  全タスク 12                          2026-11-24 (火)
@@ -110,6 +115,7 @@ jot --check-config
 ```
 
 ```toml
+language = "ja"            # en | ja (書かなければロケールで判定)
 theme = "light"            # dark | light | dusk
 preset = "vim"             # vim | arrows
 day_start_hour = 4         # 午前4時までは前日扱い
@@ -126,8 +132,35 @@ move_up = ["K", "ctrl+k"]
 
 操作名: `up down top bottom toggle_today switch_view view_today view_all move_up move_down add edit_title edit_note edit_tags edit_project toggle_done delete open_url detail toggle_group toggle_completed refresh help quit`
 
-不正な設定(不明な項目・操作名・キー名、キーの重複、未知のテーマ、TOML構文エラーなど)は起動時に
-`jot: 設定エラー: <ファイル>: <理由>` を表示して終了コード 2 で終了します。
+不正な設定(不明な項目・操作名・キー名、キーの重複、未知のテーマ、`language` が en/ja 以外、TOMLの構文・型エラーなど)は起動時と `--check-config` で
+`jot: 設定エラー: <ファイル>: <理由>`(英語表示では `jot: config error: <file>: <reason>`)を表示して終了コード 2 で終了します。
+
+## 表示言語 (language)
+
+Jot の画面・メッセージは英語(`en`)と日本語(`ja`)に対応しています。決め方:
+
+1. 設定ファイルの top-level キー `language` があればそれを使う。受け付ける値は `"en"` と `"ja"` **のみ**(`"jp"`・`"JA"`・`"ja_JP"`・空文字・数値などはエラー)。ロケールより優先されます。
+2. `language` が無いとき、`LC_ALL` → `LC_MESSAGES` → `LANG` の順で **最初の空でない** 変数だけを見て、
+   日本語ロケール(`ja_JP.UTF-8`、`ja_JP`、`ja` など先頭が `ja`)なら日本語、それ以外(`C`、`POSIX`、`en_US.UTF-8` など)なら英語。
+   例: `LC_ALL` が空・`LC_MESSAGES=C`・`LANG=ja_JP.UTF-8` → 英語。(`LANGUAGE` 変数は見ません)
+3. どれも未設定なら英語(既定・フォールバック)。
+
+```sh
+LANG=ja_JP.UTF-8 jot          # 日本語
+LC_ALL=C jot                  # 英語
+jot --check-config            # 例: Config OK: … language=en (locale LANG=en_US.UTF-8)
+```
+
+`--check-config` は採用された言語とその根拠(設定ファイル / ロケール変数 / 既定)を表示します。
+`language` が不正なら、他の不正な設定と同じく `--check-config` でも起動時でも
+`jot: config error: <ファイル>: language must be "en" or "ja": "jp"`(日本語環境では `jot: 設定エラー: <ファイル>: language は "en" か "ja": "jp"`)を表示して終了コード 2 になります。
+このエラー自体の言語はロケールで決まります。
+
+**翻訳されないもの:** タイトル・メモ・タグ・project 名・URL などのユーザーデータ、`pending` などの Taskwarrior の生の値、
+`task` コマンドの出力(エラー時に表示する1行目を含む)。保存される UDA 名・値(`jottoday` の日付形式など)も言語に関係なく同じなので、
+言語を切り替えても同じ Taskwarrior データをそのまま使えます。起動中に言語を切り替える機能はありません(再起動で反映)。
+
+翻訳文字列は [internal/i18n/catalog.go](internal/i18n/catalog.go) に英日まとめて置き、両言語のキー集合と書式指定子が一致することをテストで確認しています。
 
 ## Taskwarrior との連携(概要)
 

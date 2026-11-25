@@ -1,0 +1,22 @@
+{"launch":{"argv":["sh","scripts/sandbox.sh","--seed"],"cols":80,"rows":24,"env":{"LC_ALL":"","LC_MESSAGES":"","LANG":"ja_JP.UTF-8","JOT_NOW":"2026-11-24T10:00:00"}},
+"steps":[
+{"do":"wait_text","text":"Todayは空です","timeout_ms":10000},
+{"do":"expect_text","text":" Jot  Today 0  全タスク 5","row":0},
+{"do":"expect_text","text":"2026-11-24 (火)","row":0},
+{"do":"expect_text","text":"? ヘルプ  q 終了  space Today  a 追加  x 完了  tab 切替","row":23},
+{"do":"press","keys":["?"]},
+{"do":"wait_text","text":"Jot キー一覧"},
+{"do":"expect_text","text":"Todayに追加/解除"},
+{"do":"press","keys":["Escape"]},
+{"do":"press","keys":["Tab"]},
+{"do":"wait_text","text":"▸ (グループなし) (1)"},
+{"do":"press","keys":["Space"]},
+{"do":"wait_text","text":"Todayに追加しました: 牛乳を買う"},
+{"do":"resize","cols":60,"rows":20},
+{"do":"wait_text","text":"? ヘルプ  q 終了"},
+{"do":"expect_text","text":"? ヘルプ","row":19},
+{"do":"expect_text","text":" Jot  Today 1  全タスク 5","row":0},
+{"do":"capture","name":"ja-60x20"},
+{"do":"press","keys":["q"]},
+{"do":"wait_exit","exit_code":0}
+]}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"github.com/tkcd/jot/internal/config"
+	"github.com/tkcd/jot/internal/i18n"
 	"github.com/tkcd/jot/internal/tw"
 	"github.com/tkcd/jot/internal/ui"
 )
@@ -35,21 +37,41 @@ func parseNow(s string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("時刻を解釈できません: %q (例: 2026-11-24T23:59:50)", s)
+	return time.Time{}, i18n.E("cli.bad_now", s)
+}
+
+// preConfigFlag finds the value of -config/--config before flags are parsed,
+// so that --help and flag errors use the configured language.
+func preConfigFlag(args []string) string {
+	for i, a := range args {
+		for _, p := range []string{"--config", "-config"} {
+			if a == p && i+1 < len(args) {
+				return args[i+1]
+			}
+			if strings.HasPrefix(a, p+"=") {
+				return a[len(p)+1:]
+			}
+		}
+	}
+	return ""
 }
 
 func run() int {
+	prePath, _ := config.Resolve(preConfigFlag(os.Args[1:]))
+	// Language for messages before (or instead of) a valid config: the
+	// file's `language` if valid, else the locale, else English.
+	tr := config.ErrorLang(prePath, os.Getenv)
 	fs := flag.NewFlagSet("jot", flag.ContinueOnError)
-	cfgPath := fs.String("config", "", "設定ファイル (既定: $JOT_CONFIG または $XDG_CONFIG_HOME/jot/config.toml)")
-	themeFlag := fs.String("theme", "", "テーマを上書き (dark, light, dusk)")
-	nowFlag := fs.String("now", "", "現在時刻を差し替える (テスト用; $JOT_NOW と同じ)")
-	showVersion := fs.Bool("version", false, "バージョンを表示")
-	check := fs.Bool("check-config", false, "設定ファイルを検証して終了")
-	printRC := fs.Bool("print-taskrc", false, "taskrc に追記できるUDA定義を表示 (任意)")
+	cfgPath := fs.String("config", "", tr.T("cli.flag_config"))
+	themeFlag := fs.String("theme", "", tr.T("cli.flag_theme"))
+	nowFlag := fs.String("now", "", tr.T("cli.flag_now"))
+	showVersion := fs.Bool("version", false, tr.T("cli.flag_version"))
+	check := fs.Bool("check-config", false, tr.T("cli.flag_check"))
+	printRC := fs.Bool("print-taskrc", false, tr.T("cli.flag_taskrc"))
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Jot %s — Today中心のTaskwarrior TUI\n\n使い方: jot [オプション]\n\n", version)
+		fmt.Fprint(fs.Output(), tr.T("cli.usage_head", version))
 		fs.PrintDefaults()
-		fmt.Fprintln(fs.Output(), "\n環境変数: JOT_CONFIG, JOT_NOW, JOT_TASK (taskコマンドのパス), TASKRC, TASKDATA")
+		fmt.Fprintln(fs.Output(), tr.T("cli.usage_env"))
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
@@ -68,12 +90,14 @@ func run() int {
 	path, explicit := config.Resolve(*cfgPath)
 	cfg, err := config.Load(path, explicit)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "jot: 設定エラー:", err)
+		tr = config.ErrorLang(path, os.Getenv)
+		fmt.Fprintln(os.Stderr, tr.T("cli.config_error", err))
 		return 2
 	}
+	tr = cfg.Lang
 	if *themeFlag != "" {
 		if _, ok := ui.Themes[*themeFlag]; !ok {
-			fmt.Fprintf(os.Stderr, "jot: 不明なテーマ %q (dark, light, dusk)\n", *themeFlag)
+			fmt.Fprintln(os.Stderr, tr.T("cli.unknown_theme", *themeFlag))
 			return 2
 		}
 		cfg.Theme = *themeFlag
@@ -81,9 +105,16 @@ func run() int {
 	if *check {
 		src := cfg.Path
 		if src == "" {
-			src = "(ファイルなし: 既定値)"
+			src = tr.T("cli.no_file")
 		}
-		fmt.Printf("設定OK: %s (theme=%s, preset=%s)\n", src, cfg.Theme, cfg.Preset)
+		lang := tr.T("cli.lang_default", cfg.Lang)
+		switch cfg.LangFrom {
+		case "config":
+			lang = tr.T("cli.lang_config", cfg.Lang)
+		case "locale":
+			lang = tr.T("cli.lang_locale", cfg.Lang, cfg.LangVar)
+		}
+		fmt.Println(tr.T("cli.check_ok", src, cfg.Theme, cfg.Preset, lang))
 		return 0
 	}
 	clock := time.Now
@@ -95,7 +126,7 @@ func run() int {
 	if nowStr != "" {
 		base, err := parseNow(nowStr)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "jot:", err)
+			fmt.Fprintln(os.Stderr, "jot:", tr.Err(err))
 			return 2
 		}
 		start := time.Now()

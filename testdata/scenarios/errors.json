@@ -1,4 +1,4 @@
-{"launch":{"argv":["sh","-c","JOT_TASK=/nonexistent/task exec ./bin/jot"],"cols":80,"rows":24},
+{"launch":{"argv":["sh","-c","JOT_TASK=/nonexistent/task exec ./bin/jot"],"cols":80,"rows":24,"env":{"LC_ALL":"ja_JP.UTF-8"}},
 "steps":[
 {"do":"wait_text","text":"エラー: task コマンドが見つかりません","timeout_ms":10000},
 {"do":"press","keys":["a"]},

@@ -55,7 +55,7 @@ func oneLine(s string) string {
 func (m *Model) View() string {
 	w, h := m.width, m.height
 	if w < 10 || h < 4 {
-		return trunc("Jot: 端末が小さすぎます", w)
+		return trunc(m.T("ui.too_small"), w)
 	}
 	var lines []string
 	lines = append(lines, m.headerLine(w))
@@ -107,15 +107,15 @@ func (m *Model) headerLine(w int) string {
 		{" Jot ", bar.Bold(true).Render(" Jot ")},
 		{" ", bar.Render(" ")},
 	}
-	todayLabel := fmt.Sprintf("Today %d", nToday)
-	allLabel := fmt.Sprintf("全タスク %d", m.countAll())
+	todayLabel := m.T("ui.tab_today", nToday)
+	allLabel := m.T("ui.tab_all", m.countAll())
 	left = append(left,
 		struct{ s, styled string }{todayLabel, tab(todayLabel, m.view == viewToday)},
 		struct{ s, styled string }{"  ", bar.Render("  ")},
 		struct{ s, styled string }{allLabel, tab(allLabel, m.view == viewAll)},
 	)
 	now := m.now()
-	date := m.day + " " + weekday(now) + " "
+	date := m.T("ui.date", m.day, m.weekday(now)) + " "
 	if w < 50 {
 		date = m.day[5:] + " "
 	}
@@ -140,16 +140,21 @@ func (m *Model) headerLine(w int) string {
 	return b.String()
 }
 
-func weekday(t time.Time) string {
-	return "(" + []string{"日", "月", "火", "水", "木", "金", "土"}[t.Weekday()] + ")"
+// weekday returns the short weekday name in the selected language.
+func (m *Model) weekday(t time.Time) string {
+	names := strings.Split(m.T("ui.weekdays"), ",")
+	if len(names) != 7 {
+		return t.Weekday().String()[:3]
+	}
+	return names[t.Weekday()]
 }
 
 // listLines renders the task list with scrolling.
 func (m *Model) listLines(w, h int) []string {
 	if len(m.rows) == 0 {
-		msg := "全タスク: pending のタスクはありません。a で追加できます。"
+		msg := m.T("ui.empty_all")
 		if m.view == viewToday {
-			msg = "Todayは空です。tab で全タスクへ移り、space でTodayに追加 (a で新規作成)。"
+			msg = m.T("ui.empty_today")
 		}
 		st := lipgloss.NewStyle().Foreground(m.theme.c(m.theme.Muted))
 		return wrapLines(msg, w-2, func(s string) string { return "  " + st.Render(s) })
@@ -243,7 +248,7 @@ func (m *Model) taskLine(t tw.Task, pos int, sel bool, w int) string {
 		}
 	}
 	if due, ok := tw.ParseTime(t.Due); ok {
-		meta = append(meta, seg{text: "期限" + due.Local().Format("01/02"), color: th.Muted})
+		meta = append(meta, seg{text: m.T("ui.due_short", due.Local().Format("01/02")), color: th.Muted})
 	}
 
 	pw := 0
@@ -288,7 +293,7 @@ func (m *Model) taskLine(t tw.Task, pos int, sel bool, w int) string {
 func (m *Model) statusLine(w int) string {
 	th := m.theme
 	if m.mode == modeInput {
-		label := inputLabel(m.inKind)
+		label := m.inputLabel(m.inKind)
 		lab := lipgloss.NewStyle().Foreground(th.c(th.Accent)).Bold(true).Render(trunc(label, w/2))
 		return lab + trunc(m.input.View(), w-width(trunc(label, w/2)))
 	}
@@ -313,47 +318,47 @@ func (m *Model) keyName(action string) string {
 func (m *Model) hintLine(w int) string {
 	type hint struct{ key, label string }
 	var hs []hint
-	add := func(action, label string) {
+	add := func(action, labelKey string) {
 		if k := m.keyName(action); k != "" {
-			hs = append(hs, hint{k, label})
+			hs = append(hs, hint{k, m.T(labelKey)})
 		}
 	}
 	switch m.mode {
 	case modeInput:
-		hs = []hint{{"enter", "確定"}, {"esc", "取消"}}
+		hs = []hint{{"enter", m.T("hint.confirm")}, {"esc", m.T("hint.cancel")}}
 	case modeNote:
-		hs = []hint{{"ctrl+s", "保存"}, {"esc", "取消"}, {"enter", "改行"}}
+		hs = []hint{{"ctrl+s", m.T("hint.save")}, {"esc", m.T("hint.cancel")}, {"enter", m.T("hint.newline")}}
 	case modeHelp:
-		hs = []hint{{"esc", "閉じる"}, {m.keyName("down") + "/" + m.keyName("up"), "スクロール"}}
+		hs = []hint{{"esc", m.T("hint.close")}, {m.keyName("down") + "/" + m.keyName("up"), m.T("hint.scroll")}}
 	case modeURL:
-		hs = []hint{{"enter", "開く"}, {"1-9", "番号で開く"}, {"esc", "閉じる"}}
+		hs = []hint{{"enter", m.T("hint.open")}, {"1-9", m.T("hint.open_num")}, {"esc", m.T("hint.close")}}
 	case modeConfirm:
-		hs = []hint{{"y", "削除する"}, {"n/esc", "やめる"}}
+		hs = []hint{{"y", m.T("hint.delete_yes")}, {"n/esc", m.T("hint.delete_no")}}
 	case modeDetail:
-		hs = []hint{{"esc", "戻る"}, {m.keyName("down") + "/" + m.keyName("up"), "スクロール"}}
-		add("edit_note", "メモ")
-		add("open_url", "URL")
-		add("edit_title", "タイトル")
-		add("edit_tags", "タグ")
-		add("toggle_today", "Today")
-		add("toggle_done", "完了")
-		add("help", "ヘルプ")
+		hs = []hint{{"esc", m.T("hint.back")}, {m.keyName("down") + "/" + m.keyName("up"), m.T("hint.scroll")}}
+		add("edit_note", "hint.note")
+		add("open_url", "hint.url")
+		add("edit_title", "hint.title")
+		add("edit_tags", "hint.tags")
+		add("toggle_today", "hint.today")
+		add("toggle_done", "hint.done")
+		add("help", "hint.help")
 	default:
-		add("help", "ヘルプ")
-		add("quit", "終了")
-		add("toggle_today", "Today")
-		add("add", "追加")
-		add("toggle_done", "完了")
-		add("switch_view", "切替")
+		add("help", "hint.help")
+		add("quit", "hint.quit")
+		add("toggle_today", "hint.today")
+		add("add", "hint.add")
+		add("toggle_done", "hint.done")
+		add("switch_view", "hint.switch")
 		if m.view == viewToday {
-			add("move_up", "上へ")
-			add("move_down", "下へ")
+			add("move_up", "hint.up")
+			add("move_down", "hint.down")
 		}
-		add("edit_title", "編集")
-		add("edit_note", "メモ")
-		add("edit_tags", "タグ")
-		add("open_url", "URL")
-		add("delete", "削除")
+		add("edit_title", "hint.edit")
+		add("edit_note", "hint.note")
+		add("edit_tags", "hint.tags")
+		add("open_url", "hint.url")
+		add("delete", "hint.delete")
 	}
 	th := m.theme
 	bar := m.bar(w)
@@ -418,42 +423,47 @@ func (m *Model) detailLines(t tw.Task, w, h int) []string {
 	var out []string
 	title := lipgloss.NewStyle().Foreground(th.c(th.FG)).Bold(true)
 	out = append(out, wrapLines(oneLine(t.Description), w-2, func(s string) string { return " " + title.Render(s) })...)
+	// Label column: widest field name in the selected language + 1.
+	labelW := 0
+	for _, k := range []string{"ui.f_status", "ui.f_today", "ui.f_group", "ui.f_tags", "ui.f_due", "ui.f_scheduled", "ui.f_uuid"} {
+		labelW = max(labelW, width(m.T(k))+1)
+	}
 	field := func(name, v string, color string) {
 		if v == "" {
 			return
 		}
-		n := pad(name, 9)
+		n := pad(name, labelW)
 		st := val
 		if color != "" {
 			st = lipgloss.NewStyle().Foreground(th.c(color))
 		}
-		out = append(out, " "+label.Render(n)+st.Render(trunc(v, w-10)))
+		out = append(out, " "+label.Render(n)+st.Render(trunc(v, w-labelW-1)))
 	}
-	state := map[today.State]string{today.NotToday: "-", today.Active: glyphToday + " Today", today.CarriedOver: glyphCarried + " Today (" + t.Today + " から持ち越し)", today.DoneToday: glyphDone + " Today (本日完了)"}[m.rules.Of(t, m.now())]
-	status := t.Status
-	field("状態", status, "")
-	field("Today", state, th.Today)
-	field("グループ", t.Project, th.Group)
+	state := map[today.State]string{today.NotToday: "-", today.Active: glyphToday + " Today", today.CarriedOver: glyphCarried + " " + m.T("ui.state_carried", t.Today), today.DoneToday: glyphDone + " " + m.T("ui.state_donetoday")}[m.rules.Of(t, m.now())]
+	status := t.Status // raw Taskwarrior value: never translated
+	field(m.T("ui.f_status"), status, "")
+	field(m.T("ui.f_today"), state, th.Today)
+	field(m.T("ui.f_group"), t.Project, th.Group)
 	var tags []string
 	for _, x := range t.Tags {
 		tags = append(tags, "#"+x)
 	}
-	field("タグ", strings.Join(tags, " "), th.Tag)
+	field(m.T("ui.f_tags"), strings.Join(tags, " "), th.Tag)
 	if d, ok := tw.ParseTime(t.Due); ok {
-		field("期限", d.Local().Format("2006-01-02 15:04"), "")
+		field(m.T("ui.f_due"), d.Local().Format("2006-01-02 15:04"), "")
 	}
 	if d, ok := tw.ParseTime(t.Scheduled); ok {
-		field("予定", d.Local().Format("2006-01-02 15:04"), "")
+		field(m.T("ui.f_scheduled"), d.Local().Format("2006-01-02 15:04"), "")
 	}
-	field("UUID", t.UUID[:min(8, len(t.UUID))], th.Muted)
-	out = append(out, "", " "+label.Render("メモ (jotnote)"))
+	field(m.T("ui.f_uuid"), t.UUID[:min(8, len(t.UUID))], th.Muted)
+	out = append(out, "", " "+label.Render(m.T("ui.note_heading")))
 	if t.Note == "" {
-		out = append(out, "  "+label.Render("(なし — "+m.keyName("edit_note")+" で編集)"))
+		out = append(out, "  "+label.Render(trunc(m.T("ui.note_none", m.keyName("edit_note")), w-2)))
 	} else {
 		out = append(out, wrapLines(t.Note, w-3, func(s string) string { return "  " + val.Render(s) })...)
 	}
 	if len(t.Annotations) > 0 {
-		out = append(out, "", " "+label.Render("注釈 (annotations)"))
+		out = append(out, "", " "+label.Render(m.T("ui.annotations")))
 		for _, a := range t.Annotations {
 			out = append(out, wrapLines(oneLine(a.Description), w-5, func(s string) string { return "  - " + val.Render(s) })...)
 		}
@@ -467,7 +477,7 @@ func (m *Model) detailLines(t tw.Task, w, h int) []string {
 	}
 	out = out[m.detailOff:]
 	if len(out) > h {
-		out = append(out[:h-1], label.Render(trunc(" -- "+m.keyName("down")+" で続き --", w)))
+		out = append(out[:h-1], label.Render(trunc(m.T("ui.more", m.keyName("down")), w)))
 	}
 	return out
 }
@@ -478,7 +488,7 @@ func (m *Model) noteLines(w, h int) []string {
 	if t != nil {
 		name = oneLine(t.Description)
 	}
-	head := lipgloss.NewStyle().Foreground(m.theme.c(m.theme.Accent)).Bold(true).Render(trunc(" メモ編集: "+name, w))
+	head := lipgloss.NewStyle().Foreground(m.theme.c(m.theme.Accent)).Bold(true).Render(trunc(m.T("ui.note_edit", name), w))
 	lines := []string{head}
 	for _, l := range strings.Split(m.note.View(), "\n") {
 		lines = append(lines, " "+ansi.Truncate(l, w-1, ""))
@@ -488,7 +498,7 @@ func (m *Model) noteLines(w, h int) []string {
 
 func (m *Model) urlLines(w, h int) []string {
 	th := m.theme
-	out := []string{lipgloss.NewStyle().Foreground(th.c(th.Accent)).Bold(true).Render(trunc(" 開くURLを選択 (http/https のみ開けます)", w))}
+	out := []string{lipgloss.NewStyle().Foreground(th.c(th.Accent)).Bold(true).Render(trunc(m.T("ui.url_title"), w))}
 	for i, l := range m.urlList {
 		sel := i == m.urlCursor
 		cur := "  "
@@ -499,7 +509,7 @@ func (m *Model) urlLines(w, h int) []string {
 		text := l.Raw
 		color := th.FG
 		if !l.Safe {
-			text = "[ブロック] " + l.Raw + " — " + l.Reason
+			text = m.T("ui.url_blocked", l.Raw, l.Reason)
 			color = th.Error
 		}
 		line := th.fg(th.Accent, sel).Render(cur) + th.fg(th.Muted, sel).Render(num) +
@@ -513,11 +523,11 @@ func (m *Model) helpLines(w, h int) []string {
 	th := m.theme
 	keySt := lipgloss.NewStyle().Foreground(th.c(th.Accent)).Bold(true)
 	var all []string
-	all = append(all, lipgloss.NewStyle().Bold(true).Render(trunc(" Jot キー一覧", w)))
+	all = append(all, lipgloss.NewStyle().Bold(true).Render(trunc(m.T("ui.help_title"), w)))
 	if m.cfg.Path != "" {
-		all = append(all, lipgloss.NewStyle().Foreground(th.c(th.Muted)).Render(trunc(" 設定: "+m.cfg.Path, w)))
+		all = append(all, lipgloss.NewStyle().Foreground(th.c(th.Muted)).Render(trunc(m.T("ui.help_config", m.cfg.Path), w)))
 	} else {
-		all = append(all, lipgloss.NewStyle().Foreground(th.c(th.Muted)).Render(trunc(" 設定: なし (既定値, 例: "+config.DefaultPath()+")", w)))
+		all = append(all, lipgloss.NewStyle().Foreground(th.c(th.Muted)).Render(trunc(m.T("ui.help_noconfig", config.DefaultPath()), w)))
 	}
 	keyText := func(action string) string {
 		var names []string
@@ -536,9 +546,9 @@ func (m *Model) helpLines(w, h int) []string {
 	kw = min(kw, max(8, w/2))
 	for _, a := range config.Actions {
 		ksText := pad(trunc(keyText(a.Name), kw-2), kw)
-		all = append(all, keySt.Render(ksText)+trunc(a.Help, w-kw))
+		all = append(all, keySt.Render(ksText)+trunc(m.T("action."+a.Name), w-kw))
 	}
-	all = append(all, "", trunc(" 入力欄: enter 確定 / esc 取消。メモ: ctrl+s 保存 / esc 取消", w))
+	all = append(all, "", trunc(m.T("ui.help_footer"), w))
 	if m.helpOff > len(all)-h {
 		m.helpOff = max(0, len(all)-h)
 	}
