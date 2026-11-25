@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tkcd/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/i18n"
 )
 
 // Client runs the Taskwarrior CLI. All reads use `task export`; all writes use

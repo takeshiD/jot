@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tkcd/jot/internal/i18n"
-	"github.com/tkcd/jot/internal/testenv"
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/testenv"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 // Jot writes -> plain `task export` sees the same content.

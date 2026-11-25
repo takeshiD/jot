@@ -30,7 +30,7 @@ Jot は [kenshu-loop](https://github.com/takeshiD/kenshu-loop)（発注・納品
 
 - 設定の `[keys]` でプリセットのキーを別の操作に割り当てると、元の操作からそのキーが警告なしに外れる（`--check-config` は OK を返す）
 - `task` が見つからないとき、本文に「Todayは空です」と出る（エラーはステータス行のみに表示）
-- Go のモジュールパスが `github.com/tkcd/jot` のままで、GitHub の `takeshiD/jot` と一致しない。clone して `make build` すればビルドできるが、`go install github.com/takeshiD/jot/cmd/jot@latest` は使えない
+- ~~Go のモジュールパスが `github.com/tkcd/jot` のままで GitHub と一致しない~~ → v2 の後に `github.com/takeshiD/jot` へ修正済み（検収ループ外の機械的な置換。go vet・go test で確認）
 - 既定ブラウザ（`xdg-open`）で実際に開く動作は、検収条件（実ブラウザを開かない）のため試していない
 - 仕様上の未解決事項は [../spec.md](../spec.md) §8 を参照
 

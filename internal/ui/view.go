@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/tkcd/jot/internal/config"
-	"github.com/tkcd/jot/internal/today"
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/config"
+	"github.com/takeshiD/jot/internal/today"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 // Glyphs avoid East-Asian "ambiguous width" characters so that layouts stay

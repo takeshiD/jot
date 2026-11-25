@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 func at(s string) time.Time {

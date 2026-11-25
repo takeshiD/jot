@@ -9,10 +9,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/tkcd/jot/internal/config"
-	"github.com/tkcd/jot/internal/i18n"
-	"github.com/tkcd/jot/internal/testenv"
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/config"
+	"github.com/takeshiD/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/testenv"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 func langConfig(l i18n.Lang) *config.Config {

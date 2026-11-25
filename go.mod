@@ -1,4 +1,4 @@
-module github.com/tkcd/jot
+module github.com/takeshiD/jot
 
 go 1.27.3
 

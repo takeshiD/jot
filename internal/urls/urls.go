@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/tkcd/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/i18n"
 )
 
 // Link is a URL-like token found in text.

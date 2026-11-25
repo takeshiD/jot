@@ -12,7 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/tkcd/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/i18n"
 )
 
 // Action names that keys can be bound to (in help-screen order). Their

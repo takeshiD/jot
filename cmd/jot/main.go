@@ -13,10 +13,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
 
-	"github.com/tkcd/jot/internal/config"
-	"github.com/tkcd/jot/internal/i18n"
-	"github.com/tkcd/jot/internal/tw"
-	"github.com/tkcd/jot/internal/ui"
+	"github.com/takeshiD/jot/internal/config"
+	"github.com/takeshiD/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/ui"
 )
 
 var version = "0.1.0"

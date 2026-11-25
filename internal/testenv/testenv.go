@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 // Setup isolates Taskwarrior for the test and returns the temp dir. Tests

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tkcd/jot/internal/tw"
+	"github.com/takeshiD/jot/internal/tw"
 )
 
 // DateLayout is the format stored in the jottoday UDA.

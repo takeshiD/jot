@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tkcd/jot/internal/i18n"
+	"github.com/takeshiD/jot/internal/i18n"
 )
 
 func write(t *testing.T, s string) string {
